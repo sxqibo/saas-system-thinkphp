@@ -2,13 +2,13 @@
 
 namespace {%namespace%};
 
-use think\Model;
+use {%modelBaseClass%};
 
 /**
  * {%className%}
  */
-class {%className%} extends Model
-{{%connection%}{%pk%}
+class {%className%} extends {%modelBaseClassName%}
+{{%pk%}
     // 表名
     protected $name = '{%name%}';
 

@@ -1,15 +1,17 @@
 <template>
-    <!-- 对话框表单 -->
+    <!-- Drawer 抽屉表单 -->
     <!-- 建议使用 Prettier 格式化代码 -->
     <!-- el-form 内可以混用 el-form-item、FormItem、ba-input 等输入组件 -->
-    <el-dialog
-        class="ba-operate-dialog"
+    <el-drawer
+        class="ba-operate-drawer"
         :close-on-click-modal="false"
         :model-value="['Add', 'Edit'].includes(baTable.form.operate!)"
-        @close="baTable.toggleForm"{%bigDialog%}
+        @close="baTable.toggleForm"
+        size="60%"
+        :destroy-on-close="true"
     >
         <template #header>
-            <div class="title" v-drag="['.ba-operate-dialog', '.el-dialog__header']" v-zoom="'.ba-operate-dialog'">
+            <div class="title">
                 {{ baTable.form.operate ? t(baTable.form.operate) : '' }}
             </div>
         </template>
@@ -40,7 +42,7 @@
                 </el-button>
             </div>
         </template>
-    </el-dialog>
+    </el-drawer>
 </template>
 
 <script setup lang="ts">
@@ -59,4 +61,47 @@ const { t } = useI18n()
 const rules: Partial<Record<string, FormItemRule[]>> = reactive({{%formItemRules%}})
 </script>
 
-<style scoped lang="scss"></style>
+<style scoped lang="scss">
+.ba-operate-drawer {
+    :deep(.el-drawer__header) {
+        padding: 20px;
+        margin-bottom: 0;
+        border-bottom: 1px solid var(--el-border-color-light);
+    }
+
+    :deep(.el-drawer__body) {
+        padding: 0;
+    }
+
+    :deep(.el-drawer__footer) {
+        padding: 20px;
+        border-top: 1px solid var(--el-border-color-light);
+    }
+
+    .ba-table-form-scrollbar {
+        height: calc(100vh - 140px);
+        padding: 20px;
+    }
+
+    .ba-operate-form {
+        margin: 0 auto;
+        
+        // 紧凑表单样式，减少间距
+        :deep(.el-row) {
+            margin-bottom: 12px; // 减少行间距
+        }
+        
+        :deep(.el-form-item) {
+            margin-bottom: 12px; // 减少表单项间距
+        }
+        
+        :deep(.el-divider) {
+            margin: 16px 0 12px 0; // 减少分割线上下间距
+        }
+        
+        :deep(.el-divider__text) {
+            padding: 0 8px; // 减少分割线文字内边距
+        }
+    }
+}
+</style>

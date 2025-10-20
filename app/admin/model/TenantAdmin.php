@@ -57,11 +57,6 @@ class TenantAdmin extends Model
         return full_url($value, true, Config::get('buildadmin.default_avatar'));
     }
 
-    public function getLastlogintimeAttr($value)
-    {
-        return $value ? date('Y-m-d H:i:s', $value) : 'none';
-    }
-
     /**
      * 重置用户密码
      * @param int $uid 管理员ID

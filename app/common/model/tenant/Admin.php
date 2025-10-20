@@ -41,9 +41,4 @@ class Admin extends Model
     {
         return full_url($value, true, Config::get('buildadmin.default_avatar'));
     }
-
-    public function getLastlogintimeAttr($value)
-    {
-        return $value ? date('Y-m-d H:i:s', $value) : 'none';
-    }
 }

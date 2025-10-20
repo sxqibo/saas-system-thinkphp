@@ -15,27 +15,29 @@
         <Table ref="tableRef"></Table>
 
         <!-- 表单 -->
-        <PopupForm />
+        <PopupForm v-if="formType === 'PopupForm'" />
+        <DrawerForm v-else />
     </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, provide, useTemplateRef } from 'vue'
-import { useI18n } from 'vue-i18n'
-import PopupForm from './popupForm.vue'
-import { baTableApi } from '/@/api/common'
-import { defaultOptButtons } from '/@/components/table'
-import TableHeader from '/@/components/table/header/index.vue'
-import Table from '/@/components/table/index.vue'
+import { ref, provide, onMounted } from 'vue'
 import baTableClass from '/@/utils/baTable'
+import { defaultOptButtons } from '/@/components/table'
+import { baTableApi } from '/@/api/common'
+import { useI18n } from 'vue-i18n'
+import {%formComponentName%} from './{%formComponentFileName%}'
+import Table from '/@/components/table/index.vue'
+import TableHeader from '/@/components/table/header/index.vue'
 
 defineOptions({
     name: '{%componentName%}',
 })
 
 const { t } = useI18n()
-const tableRef = useTemplateRef()
+const tableRef = ref()
 const optButtons: OptButton[] = defaultOptButtons({%optButtons%})
+const formType = '{%formType%}'
 
 /**
  * baTable 内包含了表格的所有数据且数据具备响应性，然后通过 provide 注入给了后代组件
@@ -59,7 +61,7 @@ provide('baTable', baTable)
 onMounted(() => {
     baTable.table.ref = tableRef.value
     baTable.mount()
-    baTable.getData()?.then(() => {
+    baTable.getIndex()?.then(() => {
         baTable.initSort()
         baTable.dragSort()
     })

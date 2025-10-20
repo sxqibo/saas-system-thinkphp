@@ -8,8 +8,7 @@ use think\Exception;
 use ba\TableManager;
 use think\facade\Db;
 use app\common\library\Menu;
-use app\admin\model\MenuRule as AdminRule;
-use app\tenant\model\MenuRule as TenantRule;
+use app\admin\model\AdminRule;
 use app\admin\model\CrudLog;
 use ba\Exception as BaException;
 use Phinx\Db\Adapter\MysqlAdapter;
@@ -52,11 +51,11 @@ class Helper
      * @var array
      */
     protected static array $menuChildren = [
-        ['type' => 'button', 'title' => '查看', 'name' => '/index', 'status' => 1],
-        ['type' => 'button', 'title' => '添加', 'name' => '/add', 'status' => 1],
-        ['type' => 'button', 'title' => '编辑', 'name' => '/edit', 'status' => 1],
-        ['type' => 'button', 'title' => '删除', 'name' => '/del', 'status' => 1],
-        ['type' => 'button', 'title' => '快速排序', 'name' => '/sortable', 'status' => 1],
+        ['type' => 'button', 'title' => '查看', 'name' => '/index', 'status' => '1'],
+        ['type' => 'button', 'title' => '添加', 'name' => '/add', 'status' => '1'],
+        ['type' => 'button', 'title' => '编辑', 'name' => '/edit', 'status' => '1'],
+        ['type' => 'button', 'title' => '删除', 'name' => '/del', 'status' => '1'],
+        ['type' => 'button', 'title' => '快速排序', 'name' => '/sortable', 'status' => '1'],
     ];
 
     /**
@@ -238,21 +237,19 @@ class Helper
             'quickSearchField' => 'string|array',
             'withJoinTable'    => 'array',
             'defaultSortField' => 'string|array',
-            'weighField'       => 'string',
         ],
     ];
 
     /**
      * 获取字段字典数据
-     * @param array $dict 存储字典数据的变量
-     * @param array $field 字段数据
-     * @param string $lang 语言
+     * @param array  $dict              存储字典数据的变量
+     * @param array  $field             字段数据
+     * @param string $lang              语言
      * @param string $translationPrefix 翻译前缀
      */
     public static function getDictData(array &$dict, array $field, string $lang, string $translationPrefix = ''): array
     {
-        if (!$field['comment'])
-            return [];
+        if (!$field['comment']) return [];
         $comment = str_replace(['，', '：'], [',', ':'], $field['comment']);
         if (stripos($comment, ':') !== false && stripos($comment, ',') && stripos($comment, '=') !== false) {
             [$fieldTitle, $item] = explode(':', $comment);
@@ -284,33 +281,25 @@ class Helper
                 ]);
             return $data['id'];
         }
-
-        $connection = $data['table']['databaseConnection'] ?: config('database.default');
-        $log        = CrudLog::create([
+        $log = CrudLog::create([
             'table_name' => $data['table']['name'],
-            'comment'    => $data['table']['comment'],
             'table'      => $data['table'],
             'fields'     => $data['fields'],
-            'connection' => $connection,
             'status'     => $data['status'],
-            'app'        => $data['app'],
         ]);
         return $log->id;
     }
 
     /**
      * 获取 Phinx 的字段类型数据
-     * @param string $type 字段类型
-     * @param array $field 字段数据
+     * @param string $type  字段类型
+     * @param array  $field 字段数据
      * @return array
      */
     public static function getPhinxFieldType(string $type, array $field): array
     {
         if ($type == 'tinyint') {
-            if (
-                (isset($field['dataType']) && $field['dataType'] == 'tinyint(1)') ||
-                ($field['default'] == '1' && $field['defaultType'] == 'INPUT')
-            ) {
+            if ((isset($field['dataType']) && $field['dataType'] == 'tinyint(1)') || $field['default'] == '1') {
                 $type = 'boolean';
             }
         }
@@ -336,8 +325,8 @@ class Helper
 
     /**
      * 分析字段limit和精度
-     * @param string $type 字段类型
-     * @param array $field 字段数据
+     * @param string $type  字段类型
+     * @param array  $field 字段数据
      * @return array ['limit' => 10, 'precision' => null, 'scale' => null]
      */
     public static function analyseFieldLimit(string $type, array $field): array
@@ -353,7 +342,7 @@ class Helper
                 return ['precision' => $dataTypeLimit[0], 'scale' => $dataTypeLimit[1] ?? 0];
             }
             $scale = isset($field['precision']) ? intval($field['precision']) : 0;
-            return ['precision' => $field['length'] ?? 10, 'scale' => $scale];
+            return ['precision' => $field['length'] ?: 10, 'scale' => $scale];
         } elseif (in_array($type, $fieldType['values'])) {
             foreach ($dataTypeLimit as &$item) {
                 $item = str_replace(['"', "'"], '', $item);
@@ -380,9 +369,12 @@ class Helper
 
     public static function analyseFieldDefault(array $field): mixed
     {
-        return match ($field['defaultType']) {
-            'EMPTY STRING' => '',
-            'NULL' => null,
+        if (strtolower((string)$field['default']) == 'null') {
+            return null;
+        }
+        return match ($field['default']) {
+            '0' => 0,
+            'empty string' => '',
             default => $field['default'],
         };
     }
@@ -417,7 +409,7 @@ class Helper
             'text', 'blob', 'geometry', 'geometrycollection', 'json', 'linestring', 'longblob', 'longtext', 'mediumblob',
             'mediumtext', 'multilinestring', 'multipoint', 'multipolygon', 'point', 'polygon', 'tinyblob',
         ];
-        if ($field['defaultType'] != 'NONE' && !in_array($conciseType, $noDefaultValueFields)) {
+        if ($field['default'] != 'none' && !in_array($conciseType, $noDefaultValueFields)) {
             $phinxColumnOptions['default'] = self::analyseFieldDefault($field);
         }
 
@@ -433,37 +425,38 @@ class Helper
 
     /**
      * 表字段排序
-     * @param string $tableName 表名
-     * @param array $fields 字段数据
-     * @param array $designChange 前端字段改变数据
-     * @param ?string $connection 数据库连接标识
+     * @param string $tableName    表名
+     * @param array  $fields       字段数据
+     * @param array  $designChange 前端字段改变数据
      * @return void
-     * @throws Throwable
      */
-    public static function updateFieldOrder(string $tableName, array $fields, array $designChange, ?string $connection = null): void
+    public static function updateFieldOrder(string $tableName, array $fields, array $designChange): void
     {
         if ($designChange) {
-            $table = TableManager::phinxTable($tableName, [], false, $connection);
+            $table = TableManager::instance($tableName, [], false);
             foreach ($designChange as $item) {
-                if (!$item['sync'])
-                    continue;
+                if (!$item['sync']) continue;
 
                 if (!empty($item['after'])) {
 
                     $fieldName = in_array($item['type'], ['add-field', 'change-field-name']) ? $item['newName'] : $item['oldName'];
 
-                    $field = self::searchArray($fields, function ($field) use ($fieldName) {
+                    $field    = self::searchArray($fields, function ($field) use ($fieldName) {
                         return $field['name'] == $fieldName;
                     });
-
-                    $phinxFieldData = self::getPhinxFieldData($field);
-
-                    // 字段顺序调整
+                    $dataType = self::analyseFieldDataType($field);
+                    $sql      = "ALTER TABLE `$tableName` MODIFY COLUMN `$fieldName` $dataType";
                     if ($item['after'] == 'FIRST FIELD') {
-                        $phinxFieldData['options']['after'] = MysqlAdapter::FIRST;
+                        // 设为第一个字段
+                        $sql .= ' FIRST';
                     } else {
-                        $phinxFieldData['options']['after'] = $item['after'];
+                        $sql .= " AFTER `{$item['after']}`";
                     }
+                    Db::execute($sql);
+
+                    // 使用 Phinx 再更新一遍字段，不然字段注释等数据丢失
+                    // think-migration 使用了自行维护的 Phinx，并不支持直接将字段设置为第一个，所以调整排序直接使用 SQL
+                    $phinxFieldData = self::getPhinxFieldData($field);
                     $table->changeColumn($fieldName, $phinxFieldData['type'], $phinxFieldData['options']);
                 }
             }
@@ -473,17 +466,17 @@ class Helper
 
     /**
      * 表设计处理
-     * @param array $table 表数据
+     * @param array $table  表数据
      * @param array $fields 字段数据
      * @return array
      * @throws Throwable
      */
     public static function handleTableDesign(array $table, array $fields): array
     {
-        $name         = TableManager::tableName($table['name'], true, $table['databaseConnection']);
+        $name         = TableManager::tableName($table['name']);
         $comment      = $table['comment'] ?? '';
         $designChange = $table['designChange'] ?? [];
-        $adapter      = TableManager::phinxAdapter(false, $table['databaseConnection']);
+        $adapter      = TableManager::phinxAdapter(false);
 
         $pk = self::searchArray($fields, function ($item) {
             return $item['primaryKey'];
@@ -492,45 +485,41 @@ class Helper
 
         if ($adapter->hasTable($name)) {
             // 更新表
+            TableManager::changeComment($name, $comment);
             if ($designChange) {
-                $tableManager = TableManager::phinxTable($name, [], false, $table['databaseConnection']);
-                $tableManager->changeComment($comment)->update();
+                $table = TableManager::instance($name, [], false);
 
                 // 改名和删除操作优先
-                $priorityOpt = false;
                 foreach ($designChange as $item) {
 
-                    if (!$item['sync'])
-                        continue;
+                    if (!$item['sync']) continue;
 
-                    if (in_array($item['type'], ['change-field-name', 'del-field']) && !$tableManager->hasColumn($item['oldName'])) {
+                    if (in_array($item['type'], ['change-field-name', 'del-field']) && !$table->hasColumn($item['oldName'])) {
                         // 字段不存在
                         throw new BaException(__($item['type'] . ' fail not exist', [$item['oldName']]));
                     }
 
                     if ($item['type'] == 'change-field-name') {
-                        $priorityOpt = true;
-                        $tableManager->renameColumn($item['oldName'], $item['newName']);
-                    } elseif ($item['type'] == 'del-field') {
-                        $priorityOpt = true;
-                        $tableManager->removeColumn($item['oldName']);
-                    }
-                }
+                        $table->renameColumn($item['oldName'], $item['newName']);
 
-                // 保存需要优先执行的操作，避免先改名再改属性时找不到字段
-                if ($priorityOpt) {
-                    $tableManager->update();
+                        // 改名后使用 Phinx 再更新一遍字段，不然字段注释等数据丢失
+                        $phinxFieldData = self::getPhinxFieldData(self::searchArray($fields, function ($field) use ($item) {
+                            return $field['name'] == $item['newName'];
+                        }));
+                        $table->changeColumn($item['newName'], $phinxFieldData['type'], $phinxFieldData['options']);
+                    } elseif ($item['type'] == 'del-field') {
+                        $table->removeColumn($item['oldName']);
+                    }
                 }
 
                 // 修改字段属性和添加字段操作
                 foreach ($designChange as $item) {
 
-                    if (!$item['sync'])
-                        continue;
+                    if (!$item['sync']) continue;
 
                     if ($item['type'] == 'change-field-attr') {
 
-                        if (!$tableManager->hasColumn($item['oldName'])) {
+                        if (!$table->hasColumn($item['oldName'])) {
                             // 字段不存在
                             throw new BaException(__($item['type'] . ' fail not exist', [$item['oldName']]));
                         }
@@ -538,10 +527,10 @@ class Helper
                         $phinxFieldData = self::getPhinxFieldData(self::searchArray($fields, function ($field) use ($item) {
                             return $field['name'] == $item['oldName'];
                         }));
-                        $tableManager->changeColumn($item['oldName'], $phinxFieldData['type'], $phinxFieldData['options']);
+                        $table->changeColumn($item['oldName'], $phinxFieldData['type'], $phinxFieldData['options']);
                     } elseif ($item['type'] == 'add-field') {
 
-                        if ($tableManager->hasColumn($item['newName'])) {
+                        if ($table->hasColumn($item['newName'])) {
                             // 字段已经存在
                             throw new BaException(__($item['type'] . ' fail exist', [$item['newName']]));
                         }
@@ -549,28 +538,28 @@ class Helper
                         $phinxFieldData = self::getPhinxFieldData(self::searchArray($fields, function ($field) use ($item) {
                             return $field['name'] == $item['newName'];
                         }));
-                        $tableManager->addColumn($item['newName'], $phinxFieldData['type'], $phinxFieldData['options']);
+                        $table->addColumn($item['newName'], $phinxFieldData['type'], $phinxFieldData['options']);
                     }
                 }
-                $tableManager->update();
+                $table->update();
 
                 // 表更新结构完成再处理字段排序
-                self::updateFieldOrder($name, $fields, $designChange, $table['databaseConnection']);
+                self::updateFieldOrder($name, $fields, $designChange);
             }
         } else {
             // 创建表
-            $tableManager = TableManager::phinxTable($name, [
+            $table = TableManager::instance($name, [
                 'id'          => false,
                 'comment'     => $comment,
                 'row_format'  => 'DYNAMIC',
                 'primary_key' => $pk,
                 'collation'   => 'utf8mb4_unicode_ci',
-            ], false, $table['databaseConnection']);
+            ], false);
             foreach ($fields as $field) {
                 $phinxFieldData = self::getPhinxFieldData($field);
-                $tableManager->addColumn($field['name'], $phinxFieldData['type'], $phinxFieldData['options']);
+                $table->addColumn($field['name'], $phinxFieldData['type'], $phinxFieldData['options']);
             }
-            $tableManager->create();
+            $table->create();
         }
 
         return [$pk];
@@ -629,22 +618,21 @@ class Helper
         ];
     }
 
-    public static function parseWebDirNameData($table, $type, $value = '', $app = 'admin'): array
+    public static function parseWebDirNameData($table, $type, $targetNamespace = 'admin', $value = ''): array
     {
         $pathArr = [];
-        $dirName = $app == 'admin' ? 'backend' : 'tenant';
         if ($value) {
             $value        = str_replace(['.', '/', '\\', '_'], '/', $value);
             $pathArrTemp  = explode('/', $value);
             $redundantDir = [
-                'web'    => 0,
-                'src'    => 1,
-                'views'  => 2,
-                'lang'   => 2,
-                $dirName => 3,
-                'pages'  => 3,
-                'en'     => 4,
-                'zh-cn'  => 4,
+                'web'     => 0,
+                'src'     => 1,
+                'views'   => 2,
+                'lang'    => 2,
+                'backend' => 3,
+                'pages'   => 3,
+                'en'      => 4,
+                'zh-cn'   => 4,
             ];
             foreach ($pathArrTemp as $key => $item) {
                 if (!array_key_exists($item, $redundantDir) || $key !== $redundantDir[$item]) {
@@ -663,21 +651,29 @@ class Helper
         $pathArr          = array_map('strtolower', $pathArr);
         $lastName         = lcfirst($originalLastName);
 
+        // 根据targetNamespace确定web目录前缀
+        $webPrefix = $targetNamespace === 'tenant' ? 'tenant' : 'backend';
+        
+        // 如果路径数组的第一个元素与目标命名空间相同，则去掉重复部分
+        if (!empty($pathArr) && $pathArr[0] === $targetNamespace) {
+            array_shift($pathArr);
+        }
+
         $webDir['path']             = $pathArr;
         $webDir['lastName']         = $lastName;
         $webDir['originalLastName'] = $originalLastName;
+        
         if ($type == 'views') {
-            $webDir['views'] = "web/src/views/" . $dirName . ($pathArr ? '/' . implode('/', $pathArr) : '') . "/$lastName";
+            $webDir['views'] = "web/src/views/$webPrefix" . ($pathArr ? '/' . implode('/', $pathArr) : '') . "/$lastName";
         } elseif ($type == 'lang') {
             $webDir['lang'] = array_merge($pathArr, [$lastName]);
             $langDir        = ['en', 'zh-cn'];
             foreach ($langDir as $item) {
-                $webDir[$item] = "web/src/lang/" . $dirName . "/" . "$item" . ($pathArr ? '/' . implode('/', $pathArr) : '') . "/$lastName";
+                $webDir[$item] = "web/src/lang/$webPrefix/$item" . ($pathArr ? '/' . implode('/', $pathArr) : '') . "/$lastName";
             }
         }
         foreach ($webDir as &$item) {
-            if (is_string($item))
-                $item = Filesystem::fsFit($item);
+            if (is_string($item)) $item = Filesystem::fsFit($item);
         }
         return $webDir;
     }
@@ -702,31 +698,17 @@ class Helper
         return app_path() . DIRECTORY_SEPARATOR . 'library' . DIRECTORY_SEPARATOR . 'crud' . DIRECTORY_SEPARATOR . 'stubs' . DIRECTORY_SEPARATOR . Filesystem::fsFit($name) . '.stub';
     }
 
-     /**
-     * 多维数组转字符串
-     */
-    public static function arrayToString(array|string $value): string
-    {
-        if (!is_array($value)) {
-            return $value;
-        }
-        foreach ($value as &$item) {
-            $item = self::arrayToString($item);
-        }
-        return implode(PHP_EOL, $value);
-    }
-
     /**
      * 组装模板
      * @param string $name
-     * @param array $data
-     * @param bool $escape
+     * @param array  $data
+     * @param bool   $escape
      * @return string
      */
     public static function assembleStub(string $name, array $data, bool $escape = false): string
     {
         foreach ($data as &$datum) {
-            $datum = self::arrayToString($datum);
+            $datum = is_array($datum) ? implode(PHP_EOL, $datum) : $datum;
         }
         $search = $replace = [];
         foreach ($data as $k => $v) {
@@ -758,22 +740,26 @@ class Helper
     }
 
     /**
-     * 根据数据表解析字段数据
-     * @throws Throwable
+     * 删除数据表
      */
-    public static function parseTableColumns(string $table, bool $analyseField = false, ?string $connection = null): array
+    public static function delTable(string $table): void
     {
-        $connection       = TableManager::getConnection($connection);
-        $connectionConfig = TableManager::getConnectionConfig($connection);
+        $sql = 'DROP TABLE IF EXISTS `' . TableManager::tableName($table) . '`';
+        Db::execute($sql);
+    }
 
+    /**
+     * 根据数据表解析字段数据
+     */
+    public static function parseTableColumns(string $table, bool $analyseField = false): array
+    {
         // 从数据库中获取表字段信息
         $sql = 'SELECT * FROM `information_schema`.`columns` '
             . 'WHERE TABLE_SCHEMA = ? AND table_name = ? '
             . 'ORDER BY ORDINAL_POSITION';
 
         $columns     = [];
-        $tableColumn = Db::connect($connection)->query($sql, [$connectionConfig['database'], TableManager::tableName($table, true, $connection)]);
-
+        $tableColumn = Db::query($sql, [config('database.connections.mysql.database'), TableManager::tableName($table)]);
         foreach ($tableColumn as $item) {
             $isNullAble = $item['IS_NULLABLE'] == 'YES';
             if (str_contains($item['COLUMN_TYPE'], '(')) {
@@ -782,25 +768,11 @@ class Helper
                 $dataType = str_replace(' unsigned', '', $item['COLUMN_TYPE']);
             }
 
-            // 默认值和默认值类型分析
-            $default = '';
-            if ($isNullAble && is_null($item['COLUMN_DEFAULT'])) {
-                $defaultType = 'NULL';
-            } elseif ($item['COLUMN_DEFAULT'] == '' && in_array($item['DATA_TYPE'], ['varchar', 'char'])) {
-                $defaultType = 'EMPTY STRING';
-            } elseif (!$isNullAble && is_null($item['COLUMN_DEFAULT'])) {
-                $defaultType = 'NONE';
-            } else {
-                $defaultType = 'INPUT';
-                $default     = $item['COLUMN_DEFAULT'];
-            }
-
             $column = [
                 'name'          => $item['COLUMN_NAME'],
                 'type'          => $item['DATA_TYPE'],
                 'dataType'      => $dataType,
-                'default'       => $default,
-                'defaultType'   => $defaultType,
+                'default'       => ($isNullAble && is_null($item['COLUMN_DEFAULT'])) ? 'null' : $item['COLUMN_DEFAULT'],
                 'null'          => $isNullAble,
                 'primaryKey'    => $item['COLUMN_KEY'] == 'PRI',
                 'unsigned'      => (bool)stripos($item['COLUMN_TYPE'], 'unsigned'),
@@ -850,8 +822,7 @@ class Helper
      */
     public static function analyseFieldDataType(array $field): string
     {
-        if (!empty($field['dataType']))
-            return $field['dataType'];
+        if (!empty($field['dataType'])) return $field['dataType'];
 
         $conciseType = self::analyseFieldType($field);
         $limit       = self::analyseFieldLimit($conciseType, $field);
@@ -928,7 +899,7 @@ class Helper
     /**
      * 判断是否符合指定后缀
      *
-     * @param string $field 字段名称
+     * @param string       $field     字段名称
      * @param string|array $suffixArr 后缀
      * @return bool
      */
@@ -947,54 +918,83 @@ class Helper
      * 创建菜单
      * @throws Throwable
      */
-    public static function createMenu($webViewsDir, $tableComment, $app): void
+    public static function createMenu($webViewsDir, $tableComment, $targetNamespace = 'admin'): void
     {
-        $menuName  = self::getMenuName($webViewsDir);
-        $menuModel = new AdminRule();
+        // 根据targetNamespace选择对应的AdminRule模型
+        $adminRuleClass = $targetNamespace === 'tenant' 
+            ? \app\tenant\model\AdminRule::class 
+            : \app\admin\model\AdminRule::class;
+            
+        $menuName = self::getMenuName($webViewsDir);
+        if (!$adminRuleClass::where('name', $menuName)->value('id')) {
+            $pid = 0;
+            foreach ($webViewsDir['path'] as $item) {
+                // 跳过与目标命名空间相同的目录，避免创建多余的菜单
+                if ($item === $targetNamespace) {
+                    continue;
+                }
+                
+                $pMenu = $adminRuleClass::where('name', $item)->value('id');
+                if ($pMenu) {
+                    $pid = $pMenu;
+                    continue;
+                }
+                $menu = [
+                    'pid'   => $pid,
+                    'type'  => 'menu_dir',
+                    'title' => $item,
+                    'name'  => $item,
+                    'path'  => $item,
+                ];
+                $menu = $adminRuleClass::create($menu);
+                $pid  = $menu->id;
+            }
 
-        if ($app == 'tenant') {
-            $menuModel = new TenantRule();
-        }
-
-        if ($menuModel::where('name', $menuName)->value('id')) {
-            return;
-        }
-
-        // 组装权限节点数据
-        $menuChildren = self::$menuChildren;
-        foreach ($menuChildren as &$item) {
-            $item['name'] = $menuName . $item['name'];
-        }
-
-        // 组件路径
-        $componentPath = str_replace(['\\', 'web/src'], ['/', '/src'], $webViewsDir['views'] . '/' . 'index.vue');
-
-        // 菜单数组
-        $menus = [
-            'type'      => 'menu',
-            'title'     => $tableComment ?: $webViewsDir['originalLastName'],
-            'name'      => $menuName,
-            'path'      => $menuName,
-            'menu_type' => 'tab',
-            'keepalive' => 1,
-            'component' => $componentPath,
-            'children'  => $menuChildren,
-        ];
-        $paths = array_reverse($webViewsDir['path']);
-        foreach ($paths as $path) {
-            $menus = [
-                'type'     => 'menu_dir',
-                'title'    => $path,
-                'name'     => $path,
-                'path'     => $path,
-                'children' => [$menus],
+            // 建立菜单
+            foreach (self::$menuChildren as &$item) {
+                $item['name'] = $menuName . $item['name'];
+            }
+            $componentPath = str_replace(['\\', 'web/src'], ['/', '/src'], $webViewsDir['views'] . '/' . 'index.vue');
+            
+            // 根据命名空间创建菜单
+            $menuData = [
+                'type'      => 'menu',
+                'title'     => $tableComment ?: $webViewsDir['originalLastName'],
+                'name'      => $menuName,
+                'path'      => $menuName,
+                'menu_type' => 'tab',
+                'component' => $componentPath,
+                'children'  => self::$menuChildren,
+                'pid'       => $pid,
+                'status'    => '1',
             ];
+            
+            $menu = $adminRuleClass::create($menuData);
+            
+            // 创建子菜单
+            foreach (self::$menuChildren as $child) {
+                $child['pid'] = $menu->id;
+                $child['status'] = '1';
+                $adminRuleClass::create($child);
+            }
         }
+    }
 
-        // 创建菜单
-        $position = $app == 'admin' ? 'backend' : 'tenant';
-        Menu::create([$menus], 0, 'ignore', $position);
-
+    /**
+     * 根据命名空间删除菜单
+     * @param string $menuName
+     * @param string $adminRuleClass
+     * @return void
+     */
+    public static function deleteMenuByNamespace(string $menuName, string $adminRuleClass): void
+    {
+        $menu = $adminRuleClass::where('name', $menuName)->find();
+        if ($menu) {
+            // 删除子菜单
+            $adminRuleClass::where('pid', $menu->id)->delete();
+            // 删除主菜单
+            $menu->delete();
+        }
     }
 
     public static function writeWebLangFile($langData, $webLangDir): void
@@ -1022,16 +1022,14 @@ class Helper
 
     public static function buildModelAppend($append): string
     {
-        if (!$append)
-            return '';
+        if (!$append) return '';
         $append = self::buildFormatSimpleArray($append);
         return "\n" . self::tab() . "// 追加属性" . "\n" . self::tab() . "protected \$append = $append;\n";
     }
 
     public static function buildModelFieldType(array $fieldType): string
     {
-        if (!$fieldType)
-            return '';
+        if (!$fieldType) return '';
         $maxStrLang = 0;
         foreach ($fieldType as $key => $item) {
             $strLang    = strlen($key);
@@ -1045,15 +1043,9 @@ class Helper
         return "\n" . self::tab() . "// 字段类型转换" . "\n" . self::tab() . "protected \$type = [\n" . rtrim($str, "\n") . "\n" . self::tab() . "];\n";
     }
 
-    public static function writeModelFile(string $tablePk, array $fieldsMap, array $modelData, array $modelFile): void
+    public static function writeModelFile(string $tablePk, array $fieldsMap, array $modelData, array $modelFile, string $targetNamespace = 'admin'): void
     {
-        if ($modelData['connection'] && $modelData['connection'] != config('database.default')) {
-            $modelData['connection'] = "\n" . self::tab() . "// 数据库连接配置标识\n" . self::tab() . 'protected $connection = ' . "'{$modelData['connection']}';\n";
-        } else {
-            $modelData['connection'] = '';
-        }
-
-        $modelData['pk']                 = $tablePk == 'id' ? '' : "\n" . self::tab() . "// 表主键\n" . self::tab() . 'protected $pk = ' . "'$tablePk';\n";
+        $modelData['pk']                 = $tablePk == 'id' ? '' : "\n" . self::tab() . "// 表主键\n" . self::tab() . 'protected $pk = ' . "'$tablePk';\n" . self::tab();
         $modelData['autoWriteTimestamp'] = array_key_exists(self::$createTimeField, $fieldsMap) || array_key_exists(self::$updateTimeField, $fieldsMap) ? 'true' : 'false';
         if ($modelData['autoWriteTimestamp'] == 'true') {
             $modelData['createTime'] = array_key_exists(self::$createTimeField, $fieldsMap) ? '' : "\n" . self::tab() . "protected \$createTime = false;";
@@ -1063,6 +1055,16 @@ class Helper
         $modelData['methods']   = $modelMethodList ? "\n" . implode("\n", $modelMethodList) : '';
         $modelData['append']    = self::buildModelAppend($modelData['append']);
         $modelData['fieldType'] = self::buildModelFieldType($modelData['fieldType']);
+
+        // 根据命名空间判断模型基类
+        // 检查命名空间是否包含 tenant
+        if ($targetNamespace === 'tenant' || strpos($modelFile['namespace'], '\\tenant\\') !== false) {
+            $modelData['modelBaseClass'] = 'app\\tenant\\model\\BaseModel';
+            $modelData['modelBaseClassName'] = 'BaseModel';
+        } else {
+            $modelData['modelBaseClass'] = 'think\\Model';
+            $modelData['modelBaseClassName'] = 'Model';
+        }
 
         // 生成雪花ID？
         if (isset($modelData['beforeInsertMixins']['snowflake'])) {
@@ -1079,15 +1081,15 @@ class Helper
         self::writeFile($modelFile['parseFile'], $modelFileContent);
     }
 
-    public static function writeControllerFile(array $controllerData, array $controllerFile): void
+    public static function writeControllerFile(array $controllerData, array $controllerFile, string $targetNamespace = 'admin'): void
     {
         if (isset($controllerData['relationVisibleFieldList']) && $controllerData['relationVisibleFieldList']) {
-            $relationVisibleFields = '->visible([';
+            $relationVisibleFields = '$res->visible([';
             foreach ($controllerData['relationVisibleFieldList'] as $cKey => $controllerDatum) {
-                  $relationVisibleFields .= "'$cKey' => ['" . implode("', '", $controllerDatum) . "'], ";
+                $relationVisibleFields .= "'$cKey' => ['" . implode("','", $controllerDatum) . "'], ";
             }
             $relationVisibleFields = rtrim($relationVisibleFields, ', ');
-            $relationVisibleFields .= '])';
+            $relationVisibleFields .= ']);';
             // 重写index
             $controllerData['methods']['index'] = self::assembleStub('mixins/controller/index', [
                 'relationVisibleFields' => $relationVisibleFields
@@ -1095,6 +1097,18 @@ class Helper
             $controllerData['use']['Throwable'] = "\nuse Throwable;";
             unset($controllerData['relationVisibleFieldList']);
         }
+        
+        // 根据targetNamespace选择控制器基类
+        if ($targetNamespace === 'tenant') {
+            $controllerData['backendBaseClass'] = 'app\\common\\controller\\TenantBackend';
+            $controllerData['backendBaseClassName'] = 'TenantBackend';
+            $controllerData['backendTraitClass'] = 'app\\tenant\\library\\traits\\BackendTrait';
+        } else {
+            $controllerData['backendBaseClass'] = 'app\\common\\controller\\Backend';
+            $controllerData['backendBaseClassName'] = 'Backend';
+            $controllerData['backendTraitClass'] = 'app\\admin\\library\\traits\\Backend';
+        }
+        
         $controllerAttr = '';
         foreach ($controllerData['attr'] as $key => $item) {
             $attrType = '';
@@ -1117,10 +1131,10 @@ class Helper
         self::writeFile($controllerFile['parseFile'], $contentFileContent);
     }
 
-    public static function writeFormFile($formVueData, $webViewsDir, $fields, $webTranslate): void
+    public static function writeFormFile($formVueData, $webViewsDir, $fields, $webTranslate, $formType = 'PopupForm'): void
     {
         $fieldHtml                = "\n";
-        $formVueData['bigDialog'] = $formVueData['bigDialog'] ? "\n" . self::tab(2) . 'width="70%"' : '';
+        $formVueData['bigDialog'] = $formVueData['bigDialog'] ? "\n" . self::tab(2) . 'width="50%"' : '';
         foreach ($formVueData['formFields'] as $field) {
             $fieldHtml .= self::tab(5) . "<FormItem";
             foreach ($field as $key => $attr) {
@@ -1143,30 +1157,26 @@ class Helper
                     if (isset($field['form']['validatorMsg']) && $field['form']['validatorMsg']) {
                         $message = ", message: '{$field['form']['validatorMsg']}'";
                     }
-                    $formVueData['formValidatorRules'][$field['name']][] = "buildValidatorData({ name: '$item', title: t('$webTranslate{$field['name']}')$message })";
+                    $formValidatorRules[$field['name']][] = "buildValidatorData({ name: '$item', title: t('$webTranslate{$field['name']}')$message })";
                 }
             }
         }
-        if ($formVueData['formValidatorRules']) {
-            $formVueData['imports'][] = "import { buildValidatorData } from '/@/utils/validate'";
+        $formVueData['formItemRules'] = self::buildFormValidatorRules($formValidatorRules);
+        
+        // 根据表单类型选择模板和文件名
+        if ($formType === 'DrawerForm') {
+            $templateFile = 'html/drawerForm';
+            $fileName = 'drawerForm.vue';
+        } else {
+            $templateFile = 'html/form';
+            $fileName = 'popupForm.vue';
         }
-
-        $formVueData['importExpand']  = self::buildImportExpand($formVueData['imports']);
-        $formVueData['formItemRules'] = self::buildFormValidatorRules($formVueData['formValidatorRules']);
-        $formVueContent               = self::assembleStub('html/form', $formVueData);
-        self::writeFile(root_path() . $webViewsDir['views'] . '/' . 'popupForm.vue', $formVueContent);
+        
+        $formVueContent = self::assembleStub($templateFile, $formVueData);
+        self::writeFile(root_path() . $webViewsDir['views'] . '/' . $fileName, $formVueContent);
     }
 
-    public static function buildImportExpand(array $imports): string
-    {
-        $importExpand = '';
-        foreach ($imports as $import) {
-            $importExpand .= "\n$import";
-        }
-        return $importExpand;
-    }
-
-    public static function buildFormValidatorRules(array $formValidatorRules): string
+    public static function buildFormValidatorRules($formValidatorRules): string
     {
         $rulesHtml = "";
         foreach ($formValidatorRules as $key => $formItemRule) {
@@ -1179,19 +1189,22 @@ class Helper
         return $rulesHtml ? "\n" . $rulesHtml : '';
     }
 
-    public static function writeIndexFile($indexVueData, $webViewsDir, $controllerFile, $app): void
+    public static function writeIndexFile($indexVueData, $webViewsDir, $controllerFile, $targetNamespace = 'admin', $formType = 'PopupForm'): void
     {
         $indexVueData['optButtons']            = self::buildSimpleArray($indexVueData['optButtons']);
         $indexVueData['defaultItems']          = self::getJsonFromArray($indexVueData['defaultItems']);
         $indexVueData['tableColumn']           = self::buildTableColumn($indexVueData['tableColumn']);
         $indexVueData['dblClickNotEditColumn'] = self::buildSimpleArray($indexVueData['dblClickNotEditColumn']);
         $controllerFile['path'][]              = $controllerFile['originalLastName'];
-        $indexVueData['controllerUrl']         = '\'/admin/' . ($controllerFile['path'] ? implode('.', $controllerFile['path']) : '') . '/\'';
-        if ($app != 'admin') {
-            $indexVueData['controllerUrl'] = str_replace('admin', $app, $indexVueData['controllerUrl']);
-        }
-        $indexVueData['componentName'] = ($webViewsDir['path'] ? implode('/', $webViewsDir['path']) . '/' : '') . $webViewsDir['originalLastName'];
-        $indexVueContent               = self::assembleStub('html/index', $indexVueData);
+        
+        // 根据targetNamespace生成正确的控制器URL前缀
+        $urlPrefix = $targetNamespace === 'tenant' ? 'tenant' : 'admin';
+        $indexVueData['controllerUrl']         = "'/$urlPrefix/" . ($controllerFile['path'] ? implode('.', $controllerFile['path']) : '') . "/'";
+        $indexVueData['componentName']         = ($webViewsDir['path'] ? implode('/', $webViewsDir['path']) . '/' : '') . $webViewsDir['originalLastName'];
+        $indexVueData['formType']              = $formType;
+        $indexVueData['formComponentName']     = $formType === 'DrawerForm' ? 'DrawerForm' : 'PopupForm';
+        $indexVueData['formComponentFileName'] = $formType === 'DrawerForm' ? 'drawerForm.vue' : 'popupForm.vue';
+        $indexVueContent                       = self::assembleStub('html/index', $indexVueData);
         self::writeFile(root_path() . $webViewsDir['views'] . '/' . 'index.vue', $indexVueContent);
     }
 
@@ -1233,7 +1246,7 @@ class Helper
 
     public static function formatObjectKey(string $keyName): string
     {
-        if (preg_match("/^[a-zA-Z_][a-zA-Z0-9_]+$/", $keyName)) {
+        if (preg_match("/^[a-zA-Z0-9_]+$/", $keyName)) {
             return $keyName;
         } else {
             $quote = self::getQuote($keyName);
@@ -1248,8 +1261,7 @@ class Helper
 
     public static function buildFormatSimpleArray($arr, int $tab = 2): string
     {
-        if (!$arr)
-            return '[]';
+        if (!$arr) return '[]';
         $str = '[' . PHP_EOL;
         foreach ($arr as $item) {
             if ($item == 'undefined' || $item == 'false' || is_numeric($item)) {
@@ -1264,8 +1276,7 @@ class Helper
 
     public static function buildSimpleArray($arr): string
     {
-        if (!$arr)
-            return '[]';
+        if (!$arr) return '[]';
         $str = '';
         foreach ($arr as $item) {
             if ($item == 'undefined' || $item == 'false' || is_numeric($item)) {

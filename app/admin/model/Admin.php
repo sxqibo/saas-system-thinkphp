@@ -62,11 +62,6 @@ class Admin extends Model
         return $value == full_url($value, false, config('buildadmin.default_avatar')) ? '' : $value;
     }
 
-    public function getLastLoginTimeAttr($value): string
-    {
-        return $value ? date('Y-m-d H:i:s', $value) : '';
-    }
-
     /**
      * 重置用户密码
      * @param int|string $uid         管理员ID

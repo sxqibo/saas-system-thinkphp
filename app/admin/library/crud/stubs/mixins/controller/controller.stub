@@ -2,12 +2,12 @@
 
 namespace {%namespace%};
 {%use%}
-use app\common\controller\Backend;
+use {%backendBaseClass%};
 
 /**
  * {%tableComment%}
  */
-class {%className%} extends Backend
+class {%className%} extends {%backendBaseClassName%}
 {
     /**
      * {%modelName%}模型对象
@@ -19,6 +19,6 @@ class {%className%} extends Backend
 {%methods%}
 
     /**
-     * 若需重写查看、编辑、删除等方法，请复制 @see \app\admin\library\traits\Backend 中对应的方法至此进行重写
+     * 若需重写查看、编辑、删除等方法，请复制 @see \{%backendTraitClass%} 中对应的方法至此进行重写
      */
 }

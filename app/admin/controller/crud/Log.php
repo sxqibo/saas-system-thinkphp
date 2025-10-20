@@ -20,14 +20,14 @@ class Log extends Backend
 
     protected string|array $preExcludeFields = ['id', 'create_time'];
 
-    protected string|array $quickSearchField = ['id', 'table_name', 'comment'];
+    protected string|array $quickSearchField = ['id', 'table_name'];
 
     protected array $noNeedPermission = ['index'];
 
     public function initialize(): void
     {
         parent::initialize();
-        $this->model = new CrudLog();
+        $this->model = new CrudLog;
 
         if (!$this->auth->check('crud/crud/index')) {
             $this->error(__('You have no permission'), [], 401);

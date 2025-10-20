@@ -1,7 +1,7 @@
 <?php
 
 use ba\Filesystem;
-use GuzzleHttp\Client;
+use think\facade\Db;
 
 if (!function_exists('get_controller_list')) {
     function get_controller_list($app = 'admin'): array
@@ -11,24 +11,48 @@ if (!function_exists('get_controller_list')) {
     }
 }
 
-if (!function_exists('get_ba_client')) {
-    /**
-     * 获取一个请求 BuildAdmin 开源社区的 Client
-     * @throws Throwable
-     */
-    function get_ba_client(): Client
+if (!function_exists('get_table_list')) {
+    function get_table_list(): array
     {
-        return new Client([
-            'base_uri'        => config('buildadmin.api_url'),
-            'timeout'         => 30,
-            'connect_timeout' => 30,
-            'verify'          => false,
-            'http_errors'     => false,
-            'headers'         => [
-                'X-REQUESTED-WITH' => 'XMLHttpRequest',
-                'Referer'          => dirname(request()->root(true)),
-                'User-Agent'       => 'BuildAdminClient',
-            ]
-        ]);
+        $tableList = [];
+        $database  = config('database.connections.mysql.database');
+        $tables    = Db::query("SELECT TABLE_NAME,TABLE_COMMENT FROM information_schema.TABLES WHERE table_schema = ? ", [$database]);
+        foreach ($tables as $row) {
+            $tableList[$row['TABLE_NAME']] = $row['TABLE_NAME'] . ($row['TABLE_COMMENT'] ? ' - ' . str_replace('表', '', $row['TABLE_COMMENT']) : '');
+        }
+        return $tableList;
+    }
+}
+
+if (!function_exists('get_table_fields')) {
+    function get_table_fields($table, $onlyCleanComment = false): array
+    {
+        if (!$table) return [];
+
+        $dbname = config('database.connections.mysql.database');
+        $prefix = config('database.connections.mysql.prefix');
+
+        // 从数据库中获取表字段信息
+        $sql        = "SELECT * FROM `information_schema`.`columns` "
+            . "WHERE TABLE_SCHEMA = ? AND table_name = ? "
+            . "ORDER BY ORDINAL_POSITION";
+        $columnList = Db::query($sql, [$dbname, $table]);
+        if (!$columnList) {
+            $columnList = Db::query($sql, [$dbname, $prefix . $table]);
+        }
+
+        $fieldList = [];
+        foreach ($columnList as $item) {
+            if ($onlyCleanComment) {
+                $fieldList[$item['COLUMN_NAME']] = '';
+                if ($item['COLUMN_COMMENT']) {
+                    $comment                         = explode(':', $item['COLUMN_COMMENT']);
+                    $fieldList[$item['COLUMN_NAME']] = $comment[0];
+                }
+                continue;
+            }
+            $fieldList[$item['COLUMN_NAME']] = $item;
+        }
+        return $fieldList;
     }
 }
