@@ -22,8 +22,9 @@ class Module extends Backend
     public function index(): void
     {
         $this->success('', [
-            'sysVersion' => Config::get('buildadmin.version'),
-            'installed'  => Server::installedList(root_path() . 'modules' . DIRECTORY_SEPARATOR),
+            'installed'   => Server::installedList(root_path() . 'modules' . DIRECTORY_SEPARATOR),
+            'sysVersion'  => Config::get('buildadmin.version'),
+            'nuxtVersion' => Server::getNuxtVersion(),
         ]);
     }
 
@@ -41,15 +42,13 @@ class Module extends Backend
     public function install(): void
     {
         AdminLog::instance()->setTitle(__('Install module'));
-        $uid     = $this->request->get("uid/s", '');
-        $token   = $this->request->get("token/s", '');
-        $orderId = $this->request->get("orderId/d", 0);
+        $uid = $this->request->param("uid/s", '');
         if (!$uid) {
             $this->error(__('Parameter error'));
         }
         $res = [];
         try {
-            $res = Manage::instance($uid)->install($token, $orderId);
+            $res = Manage::instance($uid)->install();
         } catch (Exception $e) {
             $this->error(__($e->getMessage()), $e->getData(), $e->getCode());
         } catch (Throwable $e) {
@@ -117,14 +116,13 @@ class Module extends Backend
     public function update(): void
     {
         AdminLog::instance()->setTitle(__('Update module'));
-        $uid     = $this->request->get("uid/s", '');
-        $token   = $this->request->get("token/s", '');
-        $orderId = $this->request->get("orderId/d", 0);
+        $uid   = $this->request->param("uid/s", '');
+        $token = $this->request->param("token/s", '');
         if (!$token || !$uid) {
             $this->error(__('Parameter error'));
         }
         try {
-            Manage::instance($uid)->update($token, $orderId);
+            Manage::instance($uid)->update();
         } catch (Exception $e) {
             $this->error(__($e->getMessage()), $e->getData(), $e->getCode());
         } catch (Throwable $e) {

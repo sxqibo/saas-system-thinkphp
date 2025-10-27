@@ -98,22 +98,26 @@ class Manage
     /**
      * 下载模块文件
      * @param string $token   官网会员token
-     * @param int    $orderId 订单号
-     * @return string 下载文件路径
      * @throws Throwable
      */
-    public function download(string $token, int $orderId): string
+    public function download(): string
     {
+        $token   = request()->param("token/s");
+        $version = request()->param('version/s');
+        $orderId = request()->param("orderId/d");
+
         if (!$orderId) {
             throw new Exception('Order not found');
         }
+
         // 下载 - 系统版本号要求、已安装模块的互斥和依赖检测
         $zipFile = Server::download($this->uid, $this->installDir, [
-            'sysVersion'    => Config::get('buildadmin.version'),
+            'version'       => $version,
+            'orderId'       => $orderId,
             'nuxtVersion'   => Server::getNuxtVersion(),
-            'ba-user-token' => $token,
-            'order_id'      => $orderId,
+            'sysVersion'    => Config::get('buildadmin.version'),
             'installed'     => Server::getInstalledIds($this->installDir),
+            'ba-user-token' => $token,
         ]);
 
         // 删除旧版本代码
@@ -236,14 +240,14 @@ class Manage
      * 更新
      * @throws Throwable
      */
-    public function update(string $token, int $orderId): void
+    public function update(): void
     {
         $state = $this->getInstallState();
         if ($state != self::DISABLE) {
             throw new Exception('Please disable the module before updating');
         }
 
-        $this->download($token, $orderId);
+        $this->download();
 
         // 标记需要执行更新脚本，并在安装请求执行（当前请求未自动加载到新文件不方便执行）
         $info           = $this->getInfo();
@@ -253,12 +257,10 @@ class Manage
 
     /**
      * 安装模块
-     * @param string $token   用户token
-     * @param int    $orderId 订单号
      * @return array 模块基本信息
      * @throws Throwable
      */
-    public function install(string $token, int $orderId): array
+    public function install(): array
     {
         $state = $this->getInstallState();
         if ($state == self::INSTALLED || $state == self::DIRECTORY_OCCUPIED || $state == self::DISABLE) {
@@ -266,7 +268,7 @@ class Manage
         }
 
         if ($state == self::UNINSTALLED) {
-            $this->download($token, $orderId);
+            $this->download();
         }
 
         // 导入sql
