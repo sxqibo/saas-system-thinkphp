@@ -20,7 +20,7 @@ use GuzzleHttp\Exception\TransferException;
  */
 class Server
 {
-    private static string $apiBaseUrl = '/api/v6.store/';
+    private static string $apiBaseUrl = '/api/v7.store/';
 
     /**
      * 下载
