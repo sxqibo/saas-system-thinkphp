@@ -3,6 +3,20 @@
 
 🔥🔥基于 Vue3.x setup + ThinkPHP6 + TypeScript + Vite + Pinia + Element Plus等流行技术栈的后台管理系统，自适应多端、支持CRUD代码生成、自带WEB终端、同时提供Web和Server端、内置全局数据回收站和字段级数据修改保护、自动注册路由、无限子级权限管理等，无需授权即可免费商用，希望能帮助大家实现快速开发。
 
+- 优化 `baTable` 注释和类型定义注释
+- 优化后台菜单规则管理的验证规则和细节
+- 优化右击菜单组件和图标选择器的事件监听
+- 优化生成 `tableRenderer.d.ts` 文件的逻辑和其内容
+
+## v2.3.1-Release
+
+### 安全更新
+- 升级 `axios` 以避免 `CVE-2025-27152` 带来的影响（[axios请求可能通过绝对URL遭受SSRF和凭证泄露漏洞](https://www.cve.org/CVERecord?id=CVE-2025-27152)）
+- `BuildAdmin` 后台 `系统配置控制器` 内意外的设置了 `查看` 方法为免登录，可能导致 `配置信息泄露`，建议你立即进行更新或手动修复，[本安全更新详细文档](https://doc.buildadmin.com/guide/other/incompatibleUpdate/v231.html)。
+
+### 优化
+- 统一和调高系统级 `z-index` 配置值
+
 ## v2.3.0-Release
 ### 新增
 - 使用更安全的密码 `hash` 算法
