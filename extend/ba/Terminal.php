@@ -165,6 +165,7 @@ class Terminal
         if (str_contains($command['command'], '%')) {
             $args = request()->param('extend', '');
             $args = explode('~~', $args);
+            $args = array_map('escapeshellarg', $args);
 
             array_unshift($args, $command['command']);
             $command['command'] = call_user_func_array('sprintf', $args);
