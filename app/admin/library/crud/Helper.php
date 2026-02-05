@@ -1211,7 +1211,15 @@ class Helper
     public static function buildTableColumn($tableColumnList): string
     {
         $columnJson = '';
+        $emptyUnset = ['comSearchInputAttr', 'replaceValue', 'custom'];
         foreach ($tableColumnList as $column) {
+
+            foreach ($emptyUnset as $unsetKey) {
+                if (empty($column[$unsetKey])) {
+                    unset($column[$unsetKey]);
+                }
+            }
+
             $columnJson .= self::tab(3) . '{';
             foreach ($column as $key => $item) {
                 $columnJson .= self::buildTableColumnKey($key, $item);
@@ -1231,7 +1239,7 @@ class Helper
                 $itemJson .= self::buildTableColumnKey($ik, $iItem);
             }
             $itemJson = rtrim($itemJson, ',');
-            $itemJson .= ' }';
+            $itemJson .= ' },';
         } else {
             if ($item === 'false' || $item === 'true') {
                 $itemJson = ' ' . $key . ': ' . $item . ',';
