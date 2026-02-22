@@ -51,6 +51,12 @@ class Auth extends \ba\Auth
     protected string $error = '';
 
     /**
+     * 错误原因码（供接口返回，便于排查登录态问题）
+     * @var string
+     */
+    protected string $errorReason = '';
+
+    /**
      * Model实例
      * @var ?Admin
      */
@@ -136,6 +142,15 @@ class Auth extends \ba\Auth
      */
     public function init(string $token): bool
     {
+        // 先重置当前状态，确保从干净状态开始
+        $this->reset(false); // false表示不删除token
+
+        $token = trim($token);
+        if ($token === '') {
+            $this->setError('Token is empty');
+            $this->errorReason = 'token_empty';
+            return false;
+        }
         $tokenData = Token::get($token);
         if ($tokenData) {
             /**
@@ -147,19 +162,31 @@ class Auth extends \ba\Auth
             if ($tokenData['type'] == self::TOKEN_TYPE && $userId > 0) {
                 $this->model = Admin::where('id', $userId)->find();
                 if (!$this->model) {
-                    $this->setError('Account not exist');
+                    $this->setError('Account not exist: user_id=' . $userId);
+                    $this->errorReason = 'account_not_found';
+                    $this->reset();
                     return false;
                 }
-                if ($this->model['status'] != 'enable') {
-                    $this->setError('Account disabled');
+                // 兼容 status 字段 '1'/'0' 与 'enable'/'disable' 两种存储方式（见迁移 version222）
+                $statusOk = in_array((string)$this->model['status'], ['1', 'enable'], true);
+                if (!$statusOk) {
+                    $this->setError('Account disabled: status=' . $this->model['status'] . ', user_id=' . $userId);
+                    $this->errorReason = 'account_disabled';
+                    $this->reset();
                     return false;
                 }
                 $this->token = $token;
-                $this->loginSuccessful();
-                return true;
+                if ($this->loginSuccessful()) {
+                    return true;
+                } else {
+                    $this->errorReason = 'login_successful_failed';
+                    $this->reset();
+                    return false;
+                }
             }
         }
         $this->setError('Token login failed');
+        $this->errorReason = 'token_not_found';
         $this->reset();
         return false;
     }
@@ -179,7 +206,8 @@ class Auth extends \ba\Auth
             $this->setError('Username is incorrect');
             return false;
         }
-        if ($this->model->status == 'disable') {
+        // 兼容 status 字段 '1'/'0' 与 'enable'/'disable' 两种存储方式
+        if (in_array((string)$this->model->status, ['0', 'disable'], true)) {
             $this->setError('Account disabled');
             return false;
         }
@@ -238,7 +266,10 @@ class Auth extends \ba\Auth
      */
     public function loginSuccessful(): bool
     {
-        if (!$this->model) return false;
+        if (!$this->model) {
+            $this->setError('Model is null in loginSuccessful');
+            return false;
+        }
         $this->model->startTrans();
         try {
             $this->model->login_failure   = 0;
@@ -251,10 +282,11 @@ class Auth extends \ba\Auth
                 $this->token = Random::uuid();
                 Token::set($this->token, self::TOKEN_TYPE, $this->model->id, $this->keepTime);
             }
+            // ThinkPHP Model::commit() 返回 void，不能以返回值判断成功与否；失败会抛异常由 catch 处理
             $this->model->commit();
         } catch (Throwable $e) {
             $this->model->rollback();
-            $this->setError($e->getMessage());
+            $this->setError('Database error: ' . $e->getMessage());
             return false;
         }
         return true;
@@ -512,6 +544,15 @@ class Auth extends \ba\Auth
     }
 
     /**
+     * 获取错误原因码（token_empty|token_not_found|account_not_found|account_disabled|login_successful_failed）
+     * @return string
+     */
+    public function getErrorReason(): string
+    {
+        return $this->errorReason;
+    }
+
+    /**
      * 属性重置（注销、登录失败、重新初始化等将单例数据销毁）
      */
     protected function reset(bool $deleteToken = true): bool
@@ -524,6 +565,7 @@ class Auth extends \ba\Auth
         $this->loginEd      = false;
         $this->model        = null;
         $this->refreshToken = '';
+        // 保留 errorReason 供 Backend 返回具体原因，下次 init 会覆盖
         $this->setError('');
         $this->setKeepTime((int)Config::get('buildadmin.admin_token_keep_time'));
         return true;

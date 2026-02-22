@@ -83,7 +83,7 @@ class Redis extends Driver
     /**
      * @throws Throwable
      */
-    public function get(string $token): array
+    public function get(string $token, bool $expirationException = true): array
     {
         $key  = $this->getEncryptedToken($token);
         $data = $this->handler->get($key);
@@ -94,6 +94,12 @@ class Redis extends Driver
 
         $data['token']      = $token; // 返回未加密的token给客户端使用
         $data['expires_in'] = $this->getExpiredIn($data['expire_time'] ?? 0); // 过期时间
+        
+        // 如果开启了过期检查且token已过期，则抛出异常
+        if ($expirationException && isset($data['expire_time']) && $data['expire_time'] <= time()) {
+            throw new \app\common\library\token\TokenExpirationException();
+        }
+        
         return $data;
     }
 

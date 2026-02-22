@@ -497,8 +497,14 @@ if (!function_exists('get_auth_token')) {
                 $tokens[] = $request->$fun(($fun == 'server' ? 'http_' : '') . implode($sp, $names));
             }
         }
+        // 兼容 Authorization: Bearer <token> 常见方式
+        $authHeader = $request->header('authorization') ?: $request->header('Authorization');
+        if ($authHeader && preg_match('/^\s*Bearer\s+(\S+)\s*$/i', $authHeader, $m)) {
+            $tokens[] = $m[1];
+        }
         $tokens = array_filter($tokens);
-        return array_values($tokens)[0] ?? '';
+        $token  = array_values($tokens)[0] ?? '';
+        return is_string($token) ? trim($token) : '';
     }
 }
 

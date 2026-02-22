@@ -149,10 +149,36 @@ class Backend extends Api
         $token      = get_auth_token();
         $this->auth = Auth::instance();
         if (!action_in_arr($this->noNeedLogin)) {
-            $this->auth->init($token);
-            if (!$this->auth->isLogin()) {
+            // 检查是否提供了token
+            if (empty($token)) {
                 $this->error(__('Please login first'), [
-                    'type' => $this->auth::NEED_LOGIN
+                    'type' => $this->auth::NEED_LOGIN,
+                    'reason' => 'no_token_provided'
+                ], $this->auth::LOGIN_RESPONSE_CODE);
+            }
+            
+            $initResult = false;
+            try {
+                $initResult = $this->auth->init($token);
+            } catch (\app\common\library\token\TokenExpirationException $e) {
+                // Token过期异常
+                $this->error(__('Please login first'), [
+                    'type' => $this->auth::NEED_LOGIN,
+                    'reason' => 'token_expired'
+                ], $this->auth::LOGIN_RESPONSE_CODE);
+            } catch (\Exception $e) {
+                // 记录错误但不暴露给前端
+                $this->error(__('Please login first'), [
+                    'type' => $this->auth::NEED_LOGIN,
+                    'reason' => 'auth_init_failed'
+                ], $this->auth::LOGIN_RESPONSE_CODE);
+            }
+            
+            if (!$initResult || !$this->auth->isLogin()) {
+                $reason = $this->auth->getErrorReason() ?: 'not_logged_in';
+                $this->error(__('Please login first'), [
+                    'type'   => $this->auth::NEED_LOGIN,
+                    'reason' => $reason
                 ], $this->auth::LOGIN_RESPONSE_CODE);
             }
             if (!action_in_arr($this->noNeedPermission)) {

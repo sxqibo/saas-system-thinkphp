@@ -922,7 +922,7 @@ class Helper
     {
         // 根据targetNamespace选择对应的AdminRule模型
         $adminRuleClass = $targetNamespace === 'tenant' 
-            ? \app\tenant\model\AdminRule::class 
+            ? \app\tenant\model\MenuRule::class 
             : \app\admin\model\AdminRule::class;
             
         $menuName = self::getMenuName($webViewsDir);

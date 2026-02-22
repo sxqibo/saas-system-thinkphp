@@ -12,6 +12,8 @@ use app\common\library\Menu;
 use app\admin\model\AdminLog;
 use app\common\controller\Backend;
 use app\admin\library\crud\Helper;
+use app\admin\model\AdminRule as AdminRule;
+use app\tenant\model\MenuRule as TenantAdminRule;
 
 class Crud extends Backend
 {
@@ -367,8 +369,8 @@ class Crud extends Backend
 
             // 删除菜单 - 根据命名空间选择对应的AdminRule模型
             $adminRuleClass = $targetNamespace === 'tenant' 
-                ? \app\tenant\model\AdminRule::class 
-                : \app\admin\model\AdminRule::class;
+                ? TenantAdminRule::class 
+                : AdminRule::class;
                 
             $menuName = Helper::getMenuName($webLangDir);
             Helper::deleteMenuByNamespace($menuName, $adminRuleClass);
@@ -591,6 +593,30 @@ class Crud extends Backend
         $this->success('', [
             'dbs' => $outTables,
         ]);
+    }
+
+    /**
+     * 上传完成
+     */
+    public function uploadCompleted()
+    {
+        $data = $this->request->post();
+        
+        // 可根据需要实现具体的上传完成逻辑
+        
+        $this->success(__('Upload completed')); 
+    }
+
+    /**
+     * 上传日志
+     */
+    public function uploadLog()
+    {
+        $data = $this->request->post();
+        
+        // 可根据需要实现具体的上传日志逻辑
+        
+        $this->success(__('Log uploaded')); 
     }
 
     /**
@@ -898,6 +924,13 @@ class Crud extends Backend
             $url = "/$urlPrefix/" . $url . '/index';
         }
         return $url;
+    }
+
+    private function getRemoteSelectPk($field): string
+    {
+        $pk = $field['form']['remote-pk'] ?? 'id';
+        $tableName = TableManager::tableName($field['form']['remote-table'] ?? '');
+        return $tableName . '.' . $pk;
     }
 
     private function getTableColumn($field, $columnDict, $fieldNamePrefix = '', $translationPrefix = ''): array

@@ -137,6 +137,10 @@ class AdminLog extends Model
         if (!$data) {
             $data = request()->param('', null, 'trim,strip_tags,htmlspecialchars');
         }
+        // 只有在有实际数据或明确的标题时才记录日志
+        if (empty($data) && empty($title) && empty($this->title)) {
+            return;
+        }
         $data  = $this->desensitization($data);
         $title = $title ?: $this->title;
         if (!$title) {
